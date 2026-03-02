@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "engram-shell"
+version = "0.1.1"
+description = "Eidetic memory for your terminal — local AI search over your command history and output"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "Titus", email = "tljq2002@gmail.com" }]
+keywords = ["terminal", "cli", "ai", "llm", "shell", "history", "ollama", "rag", "productivity"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Terminals",
+    "Topic :: System :: Shells",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.25"]
+dev = ["pytest>=7", "pytest-cov", "black", "ruff"]
+
+[project.scripts]
+engram = "engram.cli:main"
+
+[project.urls]
+Homepage    = "https://github.com/TLJQ/engram"
+Repository  = "https://github.com/TLJQ/engram"
+Issues      = "https://github.com/TLJQ/engram/issues"
+Changelog   = "https://github.com/TLJQ/engram/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["engram*"]
+
+[tool.setuptools.package-data]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
