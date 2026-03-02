@@ -53,20 +53,6 @@ engram fixes that.
 
 ---
 
-## How to record a demo GIF (for contributors)
-
-> **For first-time setup:** record your own demo using `asciinema`:
-> ```bash
-> pip install asciinema
-> asciinema rec demo.cast
-> # run some commands, then: engram ask "what error did I just get?"
-> # exit the recording with Ctrl+D
-> # convert to GIF: npm install -g svg-term-cli && cat demo.cast | svg-term --out demo.svg
-> ```
-> Then add `![demo](demo.svg)` right here in the README.
-
----
-
 ## Quick start
 
 ### 1. Install
