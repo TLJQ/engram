@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "engram-cli"
+name = "engram-shell"
 version = "0.1.0"
 description = "Eidetic memory for your terminal — local AI search over your command history and output"
 readme = "README.md"
