@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "engram-shell"
-version = "0.1.0"
+version = "0.1.1"
 description = "Eidetic memory for your terminal — local AI search over your command history and output"
 readme = "README.md"
 license = { text = "MIT" }
@@ -48,7 +48,6 @@ where = ["."]
 include = ["engram*"]
 
 [tool.setuptools.package-data]
-engram = ["../shell/*.bash", "../shell/*.zsh", "../shell/*.fish"]
 
 [tool.black]
 line-length = 100

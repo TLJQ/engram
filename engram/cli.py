@@ -31,7 +31,27 @@ from engram.embeddings import search_similar, index_command
 from engram.llm import answer
 
 
-def cmd_ask(args):
+def validate_config() -> None:
+    """Validate environment configuration and warn about potential issues."""
+    import re
+    
+    # Validate OLLAMA_HOST format if set
+    ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    if not re.match(r'^https?://.+', ollama_host):
+        print(f"[engram] Warning: OLLAMA_HOST '{ollama_host}' doesn't look like a valid URL", file=sys.stderr)
+    
+    # Check if ENGRAM_DIR is writable
+    try:
+        ENGRAM_DIR.mkdir(parents=True, exist_ok=True)
+        test_file = ENGRAM_DIR / ".test_write"
+        test_file.touch()
+        test_file.unlink()
+    except Exception as e:
+        print(f"[engram] Warning: Cannot write to ENGRAM_DIR '{ENGRAM_DIR}': {e}", file=sys.stderr)
+
+
+def cmd_ask(args) -> None:
+    """Execute the 'ask' command - semantic search + LLM Q&A over history."""
     question = " ".join(args.question)
     if not question:
         print("[engram] Usage: engram ask \"<your question>\"")
@@ -56,7 +76,8 @@ def cmd_ask(args):
     answer(question, hits)
 
 
-def cmd_log(args):
+def cmd_log(args) -> None:
+    """Execute the 'log' command - internal command for shell hooks to record history."""
     from engram.redact import redact, is_sensitive_command
 
     cmd = args.command.strip()
@@ -80,14 +101,16 @@ def cmd_log(args):
     index_command(row_id, cmd, output)
 
 
-def cmd_shell(args):
+def cmd_shell(args) -> None:
+    """Execute the 'shell' command - launch PTY wrapper for full output capture."""
     from engram.pty_wrapper import PtyWrapper
-    shell_cmd = args.shell if args.shell else None
+    shell_cmd = args.shell if args.shell and len(args.shell) > 0 else None
     wrapper = PtyWrapper(shell=shell_cmd)
     sys.exit(wrapper.run())
 
 
-def cmd_install(args):
+def cmd_install(args) -> None:
+    """Execute the 'install' command - set up shell hooks in user's RC file."""
     import shutil
 
     ENGRAM_DIR.mkdir(parents=True, exist_ok=True)
@@ -131,7 +154,8 @@ def cmd_install(args):
     print(f"           source {rc_file}")
 
 
-def cmd_history(args):
+def cmd_history(args) -> None:
+    """Execute the 'history' command - display recent commands."""
     rows = get_recent_commands(limit=args.limit)
     if not rows:
         print("[engram] No history yet.")
@@ -154,7 +178,8 @@ def cmd_history(args):
         print(line)
 
 
-def cmd_search(args):
+def cmd_search(args) -> None:
+    """Execute the 'search' command - full-text search over history."""
     query = " ".join(args.query)
     rows  = search_fulltext(query, limit=args.limit)
     if not rows:
@@ -172,7 +197,8 @@ def cmd_search(args):
                 print(f"    {line}")
 
 
-def cmd_index(args):
+def cmd_index(args) -> None:
+    """Execute the 'index' command - generate embeddings for un-indexed commands."""
     from engram.db import get_connection
 
     conn = get_connection()
@@ -203,7 +229,8 @@ def cmd_index(args):
         print("  Some failed — is Ollama running? Try: ollama serve")
 
 
-def cmd_status(args):
+def cmd_status(args) -> None:
+    """Execute the 'status' command - show DB stats and system configuration."""
     from engram.db import get_connection
     import requests
 
@@ -242,7 +269,8 @@ def cmd_status(args):
         print(f"\n  Tip: run `engram index` to index {n_unidx:,} un-indexed commands.")
 
 
-def cmd_clear(args):
+def cmd_clear(args) -> None:
+    """Execute the 'clear' command - delete all stored history with confirmation."""
     from engram.db import get_connection
 
     conn = get_connection()
@@ -270,13 +298,14 @@ def cmd_clear(args):
 def _version() -> str:
     try:
         from importlib.metadata import version
-        return version("engram-cli")
+        return version("engram-shell")
     except Exception:
         return "dev"
 
 
 def main():
     init_db()
+    validate_config()
 
     parser = argparse.ArgumentParser(
         prog="engram",

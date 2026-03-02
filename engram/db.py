@@ -6,9 +6,10 @@ Handles all SQLite storage: commands, outputs, and vector embeddings.
 import sqlite3
 import json
 import os
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Iterator
 
 ENGRAM_DIR = Path(os.environ.get("ENGRAM_DIR", Path.home() / ".engram"))
 DB_PATH    = ENGRAM_DIR / "engram.db"
@@ -16,38 +17,55 @@ DB_PATH    = ENGRAM_DIR / "engram.db"
 
 def get_connection() -> sqlite3.Connection:
     ENGRAM_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=10.0)
     conn.row_factory = sqlite3.Row
     return conn
 
 
+@contextmanager
+def db_connection() -> Iterator[sqlite3.Connection]:
+    """Context manager for database connections with automatic commit/rollback."""
+    conn = get_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def init_db() -> None:
     """Create tables and indexes if they don't already exist."""
-    conn = get_connection()
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS commands (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp   TEXT    NOT NULL,
-            command     TEXT    NOT NULL,
-            output      TEXT,
-            exit_code   INTEGER,
-            cwd         TEXT,
-            session_id  TEXT
-        );
+    with db_connection() as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS commands (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp   TEXT    NOT NULL,
+                command     TEXT    NOT NULL,
+                output      TEXT,
+                exit_code   INTEGER,
+                cwd         TEXT,
+                session_id  TEXT
+            );
 
-        CREATE TABLE IF NOT EXISTS embeddings (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            command_id  INTEGER NOT NULL REFERENCES commands(id) ON DELETE CASCADE,
-            embedding   TEXT    NOT NULL,   -- JSON-serialized float list
-            chunk_text  TEXT    NOT NULL    -- the text that was embedded
-        );
+            CREATE TABLE IF NOT EXISTS embeddings (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                command_id  INTEGER NOT NULL REFERENCES commands(id) ON DELETE CASCADE,
+                embedding   TEXT    NOT NULL,   -- JSON-serialized float list
+                chunk_text  TEXT    NOT NULL    -- the text that was embedded
+            );
 
-        CREATE INDEX IF NOT EXISTS idx_commands_timestamp ON commands(timestamp);
-        CREATE INDEX IF NOT EXISTS idx_commands_session   ON commands(session_id);
-        CREATE INDEX IF NOT EXISTS idx_embeddings_cmd     ON embeddings(command_id);
-    """)
-    conn.commit()
-    conn.close()
+            CREATE INDEX IF NOT EXISTS idx_commands_timestamp ON commands(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_commands_session   ON commands(session_id);
+            CREATE INDEX IF NOT EXISTS idx_commands_exit_code ON commands(exit_code);
+            CREATE INDEX IF NOT EXISTS idx_embeddings_cmd     ON embeddings(command_id);
+            
+            -- For faster full-text search (SQLite's built-in text search doesn't need FTS5 for LIKE)
+            -- but we can add an index to help with common patterns
+            CREATE INDEX IF NOT EXISTS idx_commands_command   ON commands(command);
+        """)
 
 
 def log_command(
@@ -64,18 +82,16 @@ def log_command(
     """
     if timestamp is None:
         timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-    conn = get_connection()
-    cur  = conn.execute(
-        """
-        INSERT INTO commands (timestamp, command, output, exit_code, cwd, session_id)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (timestamp, command, output, exit_code, cwd, session_id),
-    )
-    row_id = cur.lastrowid
-    conn.commit()
-    conn.close()
-    return row_id  # type: ignore[return-value]
+    
+    with db_connection() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO commands (timestamp, command, output, exit_code, cwd, session_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (timestamp, command, output, exit_code, cwd, session_id),
+        )
+        return cur.lastrowid  # type: ignore[return-value]
 
 
 def get_recent_commands(limit: int = 200) -> List[Dict[str, Any]]:
@@ -106,13 +122,12 @@ def search_fulltext(query: str, limit: int = 20) -> List[Dict[str, Any]]:
 
 
 def store_embedding(command_id: int, chunk_text: str, embedding: List[float]) -> None:
-    conn = get_connection()
-    conn.execute(
-        "INSERT INTO embeddings (command_id, chunk_text, embedding) VALUES (?, ?, ?)",
-        (command_id, chunk_text, json.dumps(embedding)),
-    )
-    conn.commit()
-    conn.close()
+    """Store an embedding vector for a command."""
+    with db_connection() as conn:
+        conn.execute(
+            "INSERT INTO embeddings (command_id, chunk_text, embedding) VALUES (?, ?, ?)",
+            (command_id, chunk_text, json.dumps(embedding)),
+        )
 
 
 def get_all_embeddings() -> List[Dict[str, Any]]:

@@ -38,9 +38,15 @@ echo "  Python $(python3 --version) ✓"
 # ── 2. Install engram via pip ─────────────────────────────────────────────────
 echo "[2/4] Installing engram..."
 if command -v pip3 &>/dev/null; then
-    pip3 install --quiet --upgrade "git+https://github.com/$REPO.git"
+    if ! pip3 install --upgrade "git+https://github.com/$REPO.git"; then
+        echo "  [error] pip install failed. Check your network connection or Python environment."
+        exit 1
+    fi
 else
-    python3 -m pip install --quiet --upgrade "git+https://github.com/$REPO.git"
+    if ! python3 -m pip install --upgrade "git+https://github.com/$REPO.git"; then
+        echo "  [error] pip install failed. Check your network connection or Python environment."
+        exit 1
+    fi
 fi
 echo "  engram installed ✓"
 

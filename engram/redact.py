@@ -46,18 +46,32 @@ _add("curl_user_pass",     r"(-u\s+)([^\s:]+:[^\s]+)")
 _add("curl_header_secret", r"(-H\s+['\"]?[^'\"]*(?:key|token|secret|auth)[^'\"]*:\s*)([^'\">|\s]{8,})")
 
 # Database connection strings:  protocol://user:password@host
-_add("conn_string",        r"((?:postgres|postgresql|mysql|mongodb)://[^:]+:)([^@\s]+)(@)")
+_add("conn_string",        r"((?:postgres|postgresql|mysql|mongodb)://[^:]+:)([^@\s]+)(@)", r"\1[REDACTED]\3")
 
 # PEM private keys
 _add("pem_key",
      r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----",
      "[PRIVATE KEY REDACTED]")
 
-# Well-known token formats
-_add("github_token",       r"ghp_[A-Za-z0-9]{36,}")
+# Well-known token formats (order matters - more specific patterns first)
+# GitHub tokens in git clone URLs (must come before generic github_token)
+_add("github_token_in_url", r"://[^@/\s]*ghp_[A-Za-z0-9]{20,}[^@/\s]*@", "://[REDACTED]@")
+_add("github_token",       r"ghp_[A-Za-z0-9]{20,}")  # GitHub PATs are typically 36+ chars after ghp_
 _add("gitlab_token",       r"glpat-[A-Za-z0-9\-_]{20,}")
 _add("anthropic_key",      r"sk-ant-[A-Za-z0-9\-_]{32,}")
 _add("openai_key",         r"sk-[A-Za-z0-9]{32,}")
+_add("slack_token",        r"xox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{24,}")
+_add("slack_webhook",      r"https://hooks\.slack\.com/services/[A-Z0-9/]{30,}")
+_add("stripe_key",         r"(sk|pk)_(test|live)_[A-Za-z0-9]{24,}")
+_add("jwt_token",          r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")
+_add("heroku_key",         r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+_add("mailgun_key",        r"key-[0-9a-zA-Z]{32}")
+_add("twilio_key",         r"SK[0-9a-fA-F]{32}")
+_add("square_token",       r"sq0[a-z]{3}-[A-Za-z0-9\-_]{22,43}")
+_add("paypal_token",       r"access_token\$production\$[a-z0-9]{16}\$[a-z0-9]{32}")
+_add("digitalocean_token", r"dop_v1_[a-f0-9]{64}")
+_add("docker_token",       r"dckr_pat_[A-Za-z0-9_-]{36,}")
+_add("npm_token",          r"npm_[A-Za-z0-9]{36}")
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +103,12 @@ def redact(text: str) -> str:
     """
     Apply all built-in and user-defined redaction patterns to `text`.
     Returns the scrubbed string. Safe to call with empty string.
+    
+    Args:
+        text: The text to redact (command or output)
+        
+    Returns:
+        Text with sensitive values replaced with [REDACTED]
     """
     if not text:
         return text
@@ -115,4 +135,7 @@ def is_sensitive_command(command: str) -> bool:
         "ssh-keygen",
     )
     cmd_lower = command.strip().lower()
+    # Handle bare "passwd" command
+    if cmd_lower == "passwd":
+        return True
     return any(cmd_lower.startswith(p) for p in skip_prefixes)

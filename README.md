@@ -47,9 +47,10 @@ engram fixes that.
 | 🤖 **AI-powered search** | Ask questions in plain English, get answers grounded in your actual history |
 | 🏠 **100% local by default** | SQLite in `~/.engram/`, works with [Ollama](https://ollama.com) |
 | ⚡ **Zero-latency** | Logging is async — your shell prompt never slows down |
-| 🔒 **Secret redaction** | API keys, tokens, and passwords are scrubbed before storage |
-| 🐚 **bash, zsh, fish** | Shell hooks for all three |
+| 🔒 **Secret redaction** | API keys, tokens, and passwords are scrubbed before storage (15+ patterns) |
+| 🐚 **bash, zsh, fish** | Shell hooks for all three with automatic error handling |
 | 🖥️ **Linux + macOS** | Full support for both |
+| 🛡️ **Robust** | Connection pooling, graceful degradation, automatic model fallback |
 
 ---
 

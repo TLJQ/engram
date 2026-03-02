@@ -34,6 +34,11 @@ function _engram_postexec --on-event fish_postexec
     set -l output (head -c 8192 $tmpfile 2>/dev/null)
     rm -f $tmpfile
 
+    # Check if engram command exists
+    if not command -v engram >/dev/null 2>&1
+        return
+    end
+
     # Log asynchronously
     engram log \
         --command  $cmd          \

@@ -190,24 +190,50 @@ def ask_anthropic(question: str, context_hits: list) -> str:
     spinner = _Spinner("Thinking").start()
     first_token = True
 
+    # Try multiple model versions for compatibility
+    models_to_try = [
+        "claude-sonnet-4-20250514",
+        "claude-sonnet-4-20241022", 
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-sonnet-20240620",
+    ]
+
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-        with client.messages.stream(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            full = []
-            for text in stream.text_stream:
-                if first_token:
+        
+        # Try each model until one works
+        last_error = None
+        for model in models_to_try:
+            try:
+                with client.messages.stream(
+                    model=model,
+                    max_tokens=2048,
+                    system=SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": prompt}],
+                ) as stream:
+                    full = []
+                    for text in stream.text_stream:
+                        if first_token:
+                            spinner.stop()
+                            first_token = False
+                        print(text, end="", flush=True)
+                        full.append(text)
                     spinner.stop()
-                    first_token = False
-                print(text, end="", flush=True)
-                full.append(text)
-            spinner.stop()
-            print()
-            return "".join(full)
+                    print()
+                    return "".join(full)
+            except anthropic.NotFoundError as e:
+                last_error = e
+                continue  # Try next model
+            
+        # If we get here, all models failed
+        spinner.stop()
+        if last_error:
+            print(
+                f"\n[engram] All Claude models unavailable. Last error: {last_error}\n"
+                f"         Your API key may not have access to these models.",
+                file=sys.stderr,
+            )
+        sys.exit(1)
 
     except anthropic.AuthenticationError:
         spinner.stop()

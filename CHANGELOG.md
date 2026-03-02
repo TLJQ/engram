@@ -6,6 +6,39 @@ Format: [Semantic Versioning](https://semver.org). Types: `Added`, `Fixed`, `Cha
 
 ---
 
+## [0.1.1] — 2026-03-03
+
+### Fixed
+- **Critical:** Fixed package name mismatch in version check (`engram-cli` → `engram-shell`)
+- **Critical:** Fixed zsh hook syntax error (missing space before `]]`)
+- **Critical:** Fixed shell argument handling when no shell specified
+- Fixed database connection handling with proper context managers and automatic commit/rollback
+- Fixed potential data loss in PTY wrapper by using non-daemon threads with graceful shutdown
+- Fixed connection string redaction to properly preserve URL structure
+- Fixed bare `passwd` command not being detected as sensitive
+- Fixed GitHub token redaction in git clone URLs
+- Fixed silent pip install failures in install script
+
+### Added
+- Database connection timeout (10 seconds) to prevent lockups
+- Database indexes on `exit_code` and `command` columns for faster queries
+- Configuration validation on startup (checks OLLAMA_HOST format and directory permissions)
+- Error handling in all shell hooks (checks if `engram` command exists)
+- Comprehensive error messages for embedding failures (connection, timeout, model not found)
+- Detailed logging for corrupted embeddings with repair suggestions
+- 11 additional redaction patterns: Slack tokens/webhooks, Stripe keys, JWT tokens, Heroku keys, Mailgun keys, Twilio keys, Square tokens, PayPal tokens, DigitalOcean tokens, Docker tokens, NPM tokens
+- Type hints and docstrings for all CLI commands and core functions
+- Automatic Claude model fallback (tries multiple versions for compatibility)
+- MANIFEST.in for proper package distribution
+
+### Changed
+- Improved LLM max_tokens from 1024 to 2048 for better responses
+- Enhanced database connection pooling with context managers
+- Better error messages throughout with actionable guidance
+- Shell hooks now fail gracefully if engram command is not available
+
+---
+
 ## [0.1.0] — 2025-06-01
 
 ### Added

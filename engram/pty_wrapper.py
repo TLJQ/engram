@@ -78,6 +78,9 @@ class PtyWrapper:
         self._output_buf: bytearray = bytearray()
         self._cmd_start_time: str = ""
         self._exit_code: int = 0
+        
+        # Track background indexing threads for graceful shutdown
+        self._indexing_threads: list = []
 
     # ------------------------------------------------------------------ #
     # Shell init script injected via environment                          #
@@ -228,13 +231,17 @@ fi
             timestamp=self._cmd_start_time,
         )
 
-        # Index in a daemon thread — never blocks the shell prompt
+        # Index in a background thread — track it for graceful shutdown
         t = threading.Thread(
             target=index_command,
             args=(row_id, cmd, output),
-            daemon=True,
+            daemon=False,  # Non-daemon so it completes before exit
         )
         t.start()
+        self._indexing_threads.append(t)
+        
+        # Clean up completed threads to avoid memory growth
+        self._indexing_threads = [th for th in self._indexing_threads if th.is_alive()]
 
     # ------------------------------------------------------------------ #
     # Main entry point                                                     #
@@ -377,6 +384,11 @@ fi
 
         # Flush whatever was in progress when the shell exited
         self._flush_command()
+        
+        # Wait for indexing threads to complete (with timeout)
+        for t in self._indexing_threads:
+            if t.is_alive():
+                t.join(timeout=2.0)
 
         # Reap the child process
         try:

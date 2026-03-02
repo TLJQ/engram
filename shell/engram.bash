@@ -37,6 +37,11 @@ _engram_precmd() {
     # Skip if it looks like an internal/empty command
     [[ "$cmd" == _engram_* ]] && return
 
+    # Check if engram command exists
+    if ! command -v engram &>/dev/null; then
+        return
+    fi
+
     # Log asynchronously (no output capture in hook mode — use `engram shell` for that)
     engram log \
         --command  "$cmd"       \

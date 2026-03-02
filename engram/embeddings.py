@@ -8,6 +8,7 @@ Falls back to full-text search if Ollama is unavailable.
 import json
 import math
 import os
+import sys
 from typing import List, Optional
 
 import requests
@@ -28,7 +29,12 @@ def _cosine_similarity(a: List[float], b: List[float]) -> float:
 def embed_text(text: str) -> Optional[List[float]]:
     """
     Generate an embedding for `text` using Ollama's local embedding model.
-    Returns a list of floats, or None if Ollama is unavailable.
+    
+    Args:
+        text: The text to embed
+        
+    Returns:
+        A list of floats representing the embedding vector, or None if Ollama is unavailable.
     """
     try:
         resp = requests.post(
@@ -38,7 +44,17 @@ def embed_text(text: str) -> Optional[List[float]]:
         )
         resp.raise_for_status()
         return resp.json()["embedding"]
-    except Exception:
+    except requests.exceptions.ConnectionError:
+        return None
+    except requests.exceptions.Timeout:
+        print(f"[engram] Warning: Ollama embedding timed out", file=sys.stderr)
+        return None
+    except requests.exceptions.HTTPError as e:
+        if e.response and e.response.status_code == 404:
+            print(f"[engram] Warning: Model '{EMBED_MODEL}' not found. Run: ollama pull {EMBED_MODEL}", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"[engram] Warning: Embedding failed: {e}", file=sys.stderr)
         return None
 
 
@@ -62,6 +78,8 @@ def search_similar(query: str, top_k: int = 5) -> List[dict]:
 
     rows   = get_all_embeddings()
     scored = []
+    corrupted_count = 0
+    
     for row in rows:
         try:
             vec   = json.loads(row["embedding"])
@@ -73,8 +91,14 @@ def search_similar(query: str, top_k: int = 5) -> List[dict]:
                 "timestamp":  row["timestamp"],
                 "cwd":        row["cwd"],
             })
-        except Exception:
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            corrupted_count += 1
+            if corrupted_count <= 3:  # Only log first few to avoid spam
+                print(f"[engram] Warning: corrupted embedding for command_id={row.get('command_id')}: {e}", file=sys.stderr)
             continue
+
+    if corrupted_count > 3:
+        print(f"[engram] Warning: {corrupted_count} total corrupted embeddings found. Run 'engram index --reindex' to fix.", file=sys.stderr)
 
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored[:top_k]
@@ -83,7 +107,14 @@ def search_similar(query: str, top_k: int = 5) -> List[dict]:
 def index_command(command_id: int, command: str, output: str) -> bool:
     """
     Generate and store an embedding for a command+output pair.
-    Returns True on success, False if Ollama was unreachable.
+    
+    Args:
+        command_id: Database ID of the command
+        command: The command text
+        output: The command output (truncated to 500 chars)
+        
+    Returns:
+        True on success, False if Ollama was unreachable.
     """
     from engram.db import store_embedding
 

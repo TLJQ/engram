@@ -15,7 +15,7 @@ _engram_preexec() {
     local cmd="$1"
     [[ -z "$cmd" ]]              && return
     [[ "$cmd" == engram\ log* ]] && return
-    [[ "$cmd" == engram\ shell*]] && return
+    [[ "$cmd" == engram\ shell* ]] && return
     _ENGRAM_LAST_CMD="$cmd"
 }
 
@@ -27,6 +27,11 @@ _engram_precmd() {
 
     local cmd="$_ENGRAM_LAST_CMD"
     _ENGRAM_LAST_CMD=""
+
+    # Check if engram command exists
+    if ! command -v engram &>/dev/null; then
+        return
+    fi
 
     # Log asynchronously (no output capture in hook mode — use `engram shell` for that)
     engram log \
