@@ -65,7 +65,7 @@ curl -sSL https://raw.githubusercontent.com/TLJQ/engram/main/scripts/install.sh 
 Or with pip:
 
 ```bash
-pip install engram-cli
+pip install engram-shell
 engram install          # adds the shell hook to your RC file automatically
 ```
 
